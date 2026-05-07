@@ -112,6 +112,11 @@ ipch/
 *.VC.db
 *.VC.VC.opendb
 
+# SQLite runtime database files
+watertracker.db
+watertracker.db-shm
+watertracker.db-wal
+
 # Visual Studio profiler
 *.psess
 *.vsp
