@@ -1,4 +1,5 @@
 ﻿
+using Microsoft.EntityFrameworkCore;
 using WaterTracker.Data;
 
 namespace WaterTracker.Features.WaterIntake;
@@ -28,10 +29,13 @@ public class WaterIntakeService(ApplicationDbContext db) : IWaterIntakeService
     throw new NotImplementedException();
   }
 
-  public Task<IEnumerable<IntakeResponse>> GetForUserAsync(string userId, CancellationToken ct)
+  public async Task<IEnumerable<IntakeResponse>> GetForUserAsync(string userId, CancellationToken ct)
   {
-    throw new NotImplementedException();
-  }
+        return await db.WaterIntakeEntries
+            .Where(e => e.UserId == userId)
+            .Select(e => new IntakeResponse(e.Id, e.UserId, e.AmountMl, e.RecordedAt, e.Notes))
+            .ToListAsync(ct);
+    }
 
   public Task<IntakeResponse?> UpdateAsync(string userId, Guid entryId, UpdateIntakeRequest request, CancellationToken ct)
   {
