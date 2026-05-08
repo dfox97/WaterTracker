@@ -24,21 +24,57 @@ public class WaterIntakeService(ApplicationDbContext db) : IWaterIntakeService
         return new IntakeResponse(entry.Id, entry.UserId, entry.AmountMl, entry.RecordedAt, entry.Notes);
   }
 
-  public Task<bool> DeleteAsync(string userId, Guid entryId, CancellationToken ct)
+  public async Task<bool> DeleteAsync(string userId, Guid entryId, CancellationToken ct)
   {
-    throw new NotImplementedException();
-  }
+       var entry = await db.WaterIntakeEntries.FirstOrDefaultAsync(e => e.UserId == userId && e.Id == entryId, ct);
 
-  public async Task<IEnumerable<IntakeResponse>> GetForUserAsync(string userId, CancellationToken ct)
+        if (entry == null)
+        {
+            return false;
+        }
+
+        db.WaterIntakeEntries.Remove(entry);
+
+        await db.SaveChangesAsync(ct);
+
+        return true;
+    }
+
+    public async Task<IntakeResponse?> GetByIdAsync(string userId, Guid entryId, CancellationToken ct)
+    {
+        var entry = await db.WaterIntakeEntries.FirstOrDefaultAsync(e => e.UserId == userId && e.Id == entryId, ct);
+
+        if (entry == null)
+        {
+            return null;
+        }
+
+        return new IntakeResponse(entry.Id, entry.UserId, entry.AmountMl, entry.RecordedAt, entry.Notes);
+    }
+
+    public async Task<IEnumerable<IntakeResponse>> GetForUserAsync(string userId, CancellationToken ct)
   {
         return await db.WaterIntakeEntries
             .Where(e => e.UserId == userId)
             .Select(e => new IntakeResponse(e.Id, e.UserId, e.AmountMl, e.RecordedAt, e.Notes))
             .ToListAsync(ct);
-    }
+  }
 
-  public Task<IntakeResponse?> UpdateAsync(string userId, Guid entryId, UpdateIntakeRequest request, CancellationToken ct)
-  {
-    throw new NotImplementedException();
+    public async Task<IntakeResponse?> UpdateAsync(string userId, Guid entryId, UpdateIntakeRequest request, CancellationToken ct)
+    {
+        var entry = await db.WaterIntakeEntries.FirstOrDefaultAsync(e => e.Id == entryId && e.UserId == userId, ct);
+
+        if (entry == null)
+        {
+            return null;
+        }
+
+        entry.AmountMl = request.AmountMl;
+        entry.RecordedAt = request.RecordedAt;
+        entry.Notes = request.Notes;
+
+        await db.SaveChangesAsync(ct);
+
+        return new IntakeResponse(entry.Id, entry.UserId, entry.AmountMl, entry.RecordedAt,entry.Notes);
   }
 }

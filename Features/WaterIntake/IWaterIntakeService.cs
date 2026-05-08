@@ -6,6 +6,8 @@ public interface IWaterIntakeService
 
   Task<IEnumerable<IntakeResponse>> GetForUserAsync(string userId, CancellationToken ct);
 
+  Task<IntakeResponse?> GetByIdAsync(string userId, Guid entryId, CancellationToken ct);
+
   Task<IntakeResponse?> UpdateAsync(string userId, Guid entryId, UpdateIntakeRequest request, CancellationToken ct);
 
   Task<bool> DeleteAsync(string userId, Guid entryId, CancellationToken ct);
