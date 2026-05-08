@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using WaterTracker.Components;
 using WaterTracker.Components.Account;
 using WaterTracker.Data;
+using WaterTracker.Features.WaterIntake;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+
+builder.Services.AddScoped<IWaterIntakeService, WaterIntakeService>();
 
 var app = builder.Build();
 
