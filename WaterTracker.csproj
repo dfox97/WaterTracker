@@ -10,6 +10,9 @@
 
   <ItemGroup>
     <Compile Remove="WaterTracker.Tests\**" />
+    <Content Remove="WaterTracker.Tests\**" />
+    <None Remove="WaterTracker.Tests\**" />
+    <EmbeddedResource Remove="WaterTracker.Tests\**" />
   </ItemGroup>
 
   <ItemGroup>
