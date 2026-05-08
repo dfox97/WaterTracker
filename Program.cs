@@ -5,6 +5,7 @@ using WaterTracker.Components;
 using WaterTracker.Components.Account;
 using WaterTracker.Data;
 using WaterTracker.Features.WaterIntake;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +41,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 builder.Services.AddScoped<IWaterIntakeService, WaterIntakeService>();
+builder.Services.AddValidatorsFromAssemblyContaining<WaterIntakeValidator>();
 
 var app = builder.Build();
 

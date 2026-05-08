@@ -31,7 +31,7 @@ public class WaterIntakeServiceTests : IDisposable
             UserName = "user-a@test.com",
             Email = "user-a@test.com"
         });
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CancellationToken.None);
 
         var service = new WaterIntakeService(_db);
         var request = new CreateIntakeRequest(250, DateTimeOffset.UtcNow, "morning drink");
@@ -63,7 +63,7 @@ public class WaterIntakeServiceTests : IDisposable
             new WaterIntakeEntry { Id = Guid.NewGuid(), UserId = "user-b", AmountMl = 400, RecordedAt = DateTimeOffset.UtcNow }
          );
 
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CancellationToken.None);
 
 
         var service = new WaterIntakeService( _db );
@@ -83,7 +83,7 @@ public class WaterIntakeServiceTests : IDisposable
         var entryId = Guid.NewGuid();
 
         _db.WaterIntakeEntries.Add(new WaterIntakeEntry { Id = entryId, UserId = "user-a", AmountMl = 250, RecordedAt = DateTimeOffset.UtcNow, Notes = "original" });
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CancellationToken.None);
 
 
         var service = new WaterIntakeService(_db);
@@ -116,7 +116,7 @@ public class WaterIntakeServiceTests : IDisposable
                 AmountMl = 250,
                 RecordedAt = DateTimeOffset.UtcNow,
             });
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CancellationToken.None);
 
         var service = new WaterIntakeService( _db);
 
@@ -145,9 +145,9 @@ public class WaterIntakeServiceTests : IDisposable
                 RecordedAt = DateTimeOffset.UtcNow,
             });
 
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CancellationToken.None);
 
-       var service = new WaterIntakeService( _db);
+        var service = new WaterIntakeService( _db);
 
        var result = await service.DeleteAsync("user-a", entryId, CancellationToken.None);
 
@@ -175,7 +175,7 @@ public class WaterIntakeServiceTests : IDisposable
                 RecordedAt = DateTimeOffset.UtcNow,
             });
 
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CancellationToken.None);
 
         var service = new WaterIntakeService(_db);
 
@@ -201,7 +201,7 @@ public class WaterIntakeServiceTests : IDisposable
             AmountMl = 250,
             RecordedAt = DateTimeOffset.UtcNow
         });
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CancellationToken.None);
 
         var service = new WaterIntakeService(_db);
 
