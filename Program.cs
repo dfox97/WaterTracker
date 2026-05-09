@@ -6,6 +6,7 @@ using WaterTracker.Components.Account;
 using WaterTracker.Data;
 using WaterTracker.Features.WaterIntake;
 using FluentValidation;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,7 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 
 builder.Services.AddScoped<IWaterIntakeService, WaterIntakeService>();
 builder.Services.AddValidatorsFromAssemblyContaining<WaterIntakeValidator>();
+builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
@@ -49,6 +51,8 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
+    app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 else
 {
