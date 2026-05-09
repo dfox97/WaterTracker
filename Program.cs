@@ -59,7 +59,7 @@ else
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
-app.UseAntiforgery();
+app.UseAntiforgery(); // middleware
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
@@ -67,5 +67,8 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
-
+app.MapWaterIntakeEndpoints();
 app.Run();
+
+// Integration test
+public partial class Program;
