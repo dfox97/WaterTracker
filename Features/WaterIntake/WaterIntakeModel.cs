@@ -2,7 +2,7 @@
 
 public record CreateIntakeRequest(
     int AmountMl,
-    DateTimeOffset RecordedAt,
+    DateTimeOffset? RecordedAt,
     string? Notes);
 
 public record UpdateIntakeRequest(

@@ -65,6 +65,17 @@ public class WaterIntakeValidatorTests
         result.IsValid.Should().BeFalse();
     }
 
+    [Fact]
+    public void RecordedAt_WhenNull_PassesValidation()
+    {
+        // null means "use server time" — the future-date rule should not fire at all
+        var request = new CreateIntakeRequest(250, null, null);
+
+        var result = _validator.Validate(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData(0, true)]
     [InlineData(500, true)]

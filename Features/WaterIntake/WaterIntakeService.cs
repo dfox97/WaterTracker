@@ -13,7 +13,7 @@ public class WaterIntakeService(ApplicationDbContext db) : IWaterIntakeService
             Id = Guid.NewGuid(),
             UserId = userId,
             AmountMl = request.AmountMl,
-            RecordedAt = request.RecordedAt,
+            RecordedAt = request.RecordedAt ?? DateTimeOffset.UtcNow,
             Notes = request.Notes,
         };
 

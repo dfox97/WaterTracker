@@ -45,12 +45,34 @@ public class WaterIntakeServiceTests : IDisposable
         _db.WaterIntakeEntries.Should().HaveCount(1);
     }
 
+    [Fact]
+    public async Task AddAsync_WhenRecordedAtIsNull_DefaultsToCurrentTime()
+    {
+        _db.Users.Add(new ApplicationUser
+        {
+            Id = "user-a",
+            UserName = "user-a@test.com",
+            Email = "user-a@test.com"
+        });
+        await _db.SaveChangesAsync(CancellationToken.None);
+
+        var service = new WaterIntakeService(_db);
+        var request = new CreateIntakeRequest(250, null, null); // no RecordedAt
+
+        // capture window around the call
+        var before = DateTimeOffset.UtcNow;
+        var result = await service.AddAsync("user-a", request, CancellationToken.None);
+        var after = DateTimeOffset.UtcNow;
+
+        // server should have stamped it somewhere in that window
+        result.RecordedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+    }
 
     [Fact]
     public async Task GetForUserAsync_ReturnsOnlyEntriesForThatUser()
     {
-         var user1 = new ApplicationUser { Id = "user-a", UserName = "a@test.com", Email = "a@test.com" };
-         var user2 = new ApplicationUser { Id = "user-b", UserName = "b@test.com", Email = "b@test.com" };
+        var user1 = new ApplicationUser { Id = "user-a", UserName = "a@test.com", Email = "a@test.com" };
+        var user2 = new ApplicationUser { Id = "user-b", UserName = "b@test.com", Email = "b@test.com" };
 
 
         _db.Users.AddRange(user1, user2);
@@ -66,7 +88,7 @@ public class WaterIntakeServiceTests : IDisposable
         await _db.SaveChangesAsync(CancellationToken.None);
 
 
-        var service = new WaterIntakeService( _db );
+        var service = new WaterIntakeService(_db);
 
         var result = await service.GetForUserAsync(userId: "user-a", CancellationToken.None);
 
@@ -79,7 +101,7 @@ public class WaterIntakeServiceTests : IDisposable
     {
         var user1 = new ApplicationUser { Id = "user-a", UserName = "a@test.com", Email = "a@test.com" };
         _db.Users.Add(user1);
-        
+
         var entryId = Guid.NewGuid();
 
         _db.WaterIntakeEntries.Add(new WaterIntakeEntry { Id = entryId, UserId = "user-a", AmountMl = 250, RecordedAt = DateTimeOffset.UtcNow, Notes = "original" });
@@ -98,9 +120,9 @@ public class WaterIntakeServiceTests : IDisposable
         result.Notes.Should().Be("updated");
     }
 
-    [Fact] 
+    [Fact]
     public async Task UpdateAsync_ReturnsNullForWrongUser()
-    { 
+    {
         var user1 = new ApplicationUser { Id = "user-a", UserName = "a@test.com", Email = "a@test.com" };
         var user2 = new ApplicationUser { Id = "user-b", UserName = "b@test.com", Email = "b@test.com" };
 
@@ -118,7 +140,7 @@ public class WaterIntakeServiceTests : IDisposable
             });
         await _db.SaveChangesAsync(CancellationToken.None);
 
-        var service = new WaterIntakeService( _db);
+        var service = new WaterIntakeService(_db);
 
         var request = new UpdateIntakeRequest(99999, DateTimeOffset.UtcNow, "bad update");
 
@@ -147,12 +169,12 @@ public class WaterIntakeServiceTests : IDisposable
 
         await _db.SaveChangesAsync(CancellationToken.None);
 
-        var service = new WaterIntakeService( _db);
+        var service = new WaterIntakeService(_db);
 
-       var result = await service.DeleteAsync("user-a", entryId, CancellationToken.None);
+        var result = await service.DeleteAsync("user-a", entryId, CancellationToken.None);
 
-       result.Should().BeTrue();
-       _db.WaterIntakeEntries.Should().BeEmpty();
+        result.Should().BeTrue();
+        _db.WaterIntakeEntries.Should().BeEmpty();
     }
 
 
