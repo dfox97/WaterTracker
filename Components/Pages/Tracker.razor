@@ -1,0 +1,46 @@
+@page "/tracker"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@using WaterTracker.Features.WaterIntake
+@inject IWaterIntakeService IntakeService
+@inject AuthenticationStateProvider AuthStateProvider
+
+<section>
+  <h1>Water Tracker</h1>
+
+  @if (entries == null)
+  {
+    <p>Loading...</p>
+  }
+  else if (!entries.Any())
+  {
+    <p>No entries yet.</p>
+  }
+  else
+  {
+    @foreach (var entry in entries)
+    {
+      <p>@entry.AmountMl ml - @entry.RecordedAt.ToString("HH:mm")</p>
+    }
+  }
+</section>
+
+@code {
+  private AuthenticationState? authState;
+  private List<IntakeResponse>? entries;
+
+  // onInit in angular
+  protected override async Task OnInitializedAsync()
+  {
+    authState = await AuthStateProvider.GetAuthenticationStateAsync();
+    await LoadEntriesAsync();
+  }
+
+  private async Task LoadEntriesAsync()
+  {
+    string userId = authState!.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+    entries = (await IntakeService.GetForUserAsync(userId, CancellationToken.None)).ToList();
+  }
+
+}
