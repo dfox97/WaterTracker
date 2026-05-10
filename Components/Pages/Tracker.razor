@@ -5,9 +5,12 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using System.ComponentModel.DataAnnotations
 @using System.Security.Claims
+@using FluentValidation
 @using WaterTracker.Features.WaterIntake
 @inject IWaterIntakeService IntakeService
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IValidator<CreateIntakeRequest> CreateValidator
+@inject IValidator<UpdateIntakeRequest> UpdateValidator
 
 <section class="container py-4">
   <h1 class="mb-1">Water Tracker</h1>
@@ -37,16 +40,54 @@
             <th>Amount</th>
             <th>Time</th>
             <th>Notes</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           @foreach (var entry in SortedEntries)
           {
-            <tr>
-              <td>@entry.AmountMl ml</td>
-              <td>@entry.RecordedAt.ToLocalTime().ToString("HH:mm")</td>
-              <td>@(entry.Notes ?? "—")</td>
-            </tr>
+            @if (editingId == entry.Id)
+            {
+              <tr>
+                <td colspan="4">
+                  <EditForm Model="editForm" OnSubmit="UpdateEntryAsync" FormName="edit-entry">
+                    <DataAnnotationsValidator />
+                    <div class="d-flex gap-2 align-items-start flex-wrap">
+                      <div>
+                        <InputNumber class="form-control form-control-sm" @bind-Value="editForm.AmountMl" />
+                        <ValidationMessage class="text-danger small" For="@(() => editForm.AmountMl)" />
+                      </div>
+                      <div>
+                        <InputDate Type="InputDateType.DateTimeLocal" class="form-control form-control-sm"
+                                   @bind-Value="editForm.RecordedAt" />
+                        <ValidationMessage class="text-danger small" For="@(() => editForm.RecordedAt)" />
+                      </div>
+                      <div class="flex-grow-1">
+                        <InputText class="form-control form-control-sm" @bind-Value="editForm.Notes"
+                                   placeholder="Notes (optional)" />
+                        <ValidationMessage class="text-danger small" For="@(() => editForm.Notes)" />
+                      </div>
+                      <div class="d-flex gap-1">
+                        <button type="submit" class="btn btn-sm btn-success" disabled="@isSaving">Save</button>
+                        <button type="button" class="btn btn-sm btn-secondary" @onclick="CancelEdit">Cancel</button>
+                      </div>
+                    </div>
+                  </EditForm>
+                </td>
+              </tr>
+            }
+            else
+            {
+              <tr>
+                <td>@entry.AmountMl ml</td>
+                <td>@entry.RecordedAt.ToLocalTime().ToString("dd MMM HH:mm")</td>
+                <td>@(entry.Notes ?? "—")</td>
+                <td>
+                  <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => StartEdit(entry)">Edit</button>
+                  <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteEntryAsync(entry.Id)">Delete</button>
+                </td>
+              </tr>
+            }
           }
         </tbody>
       </table>
@@ -62,7 +103,7 @@
           <div class="alert alert-danger">@errorMessage</div>
         }
 
-        <EditForm Model="form" OnValidSubmit="AddEntryAsync" FormName="add-entry">
+        <EditForm Model="form" OnSubmit="AddEntryAsync" FormName="add-entry">
           <DataAnnotationsValidator />
 
           <div class="mb-3">
@@ -93,7 +134,10 @@
   private bool isSaving = false;
   private string? errorMessage = null;
 
-  // Form model
+  private Guid? editingId = null;
+
+
+  private EditEntryForm editForm = new();
   private AddEntryForm form = new();
 
   // Computed
@@ -106,7 +150,6 @@
 
   private IEnumerable<IntakeResponse> SortedEntries =>
       entries?.OrderByDescending(e => e.RecordedAt) ?? Enumerable.Empty<IntakeResponse>();
-
 
   // Lifecycle
   protected override async Task OnInitializedAsync()
@@ -140,10 +183,14 @@
 
     try
     {
-      var request = new CreateIntakeRequest(
-          form.AmountMl,
-          null, // for now we always set RecordedAt to "now" on the backend, so no need for the form to specify it
-          form.Notes);
+      var request = new CreateIntakeRequest(form.AmountMl, null, form.Notes);
+
+      var validation = await CreateValidator.ValidateAsync(request, CancellationToken.None);
+      if (!validation.IsValid)
+      {
+        errorMessage = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage));
+        return;
+      }
 
       await IntakeService.AddAsync(UserId, request, CancellationToken.None);
 
@@ -160,10 +207,106 @@
     }
   }
 
+  private async Task DeleteEntryAsync(Guid entryId)
+  {
+    if (UserId == null)
+    {
+      errorMessage = "Could not find the current user.";
+      return;
+    }
+    isSaving = true;
+    errorMessage = null;
+
+    try
+    {
+      await IntakeService.DeleteAsync(UserId, entryId, CancellationToken.None);
+      await LoadEntriesAsync();
+    }
+    catch (Exception err)
+    {
+      errorMessage = err.Message;
+    }
+    finally
+    {
+      isSaving = false;
+    }
+  }
+
+  private void StartEdit(IntakeResponse entry)
+  {
+    editingId = entry.Id;
+    editForm = new EditEntryForm
+    {
+      AmountMl = entry.AmountMl,
+      RecordedAt = entry.RecordedAt.ToLocalTime().DateTime,
+      Notes = entry.Notes
+    };
+  }
+
+  private void CancelEdit() => editingId = null;
+
+  private async Task UpdateEntryAsync()
+  {
+    if (UserId == null)
+    {
+      errorMessage = "Could not find the current user.";
+      return;
+    }
+    if (editingId == null)
+    {
+      return;
+    }
+
+    isSaving = true;
+    errorMessage = null;
+
+    try
+    {
+      var request = new UpdateIntakeRequest(editForm.AmountMl, new DateTimeOffset(editForm.RecordedAt), editForm.Notes);
+
+      // Reuse the same FluentValidation rules that protect the API endpoint —
+      // no duplicate rule definitions, same rules enforced in both paths
+      var validation = await UpdateValidator.ValidateAsync(request, CancellationToken.None);
+      if (!validation.IsValid)
+      {
+        errorMessage = string.Join(" ", validation.Errors.Select(e => e.ErrorMessage));
+        return;
+      }
+
+      await IntakeService.UpdateAsync(
+        UserId,
+        editingId.Value,
+        request,
+        CancellationToken.None);
+
+      editingId = null;
+      await LoadEntriesAsync();
+    }
+    catch (Exception err)
+    {
+      errorMessage = err.Message;
+    }
+    finally
+    {
+      isSaving = false;
+    }
+  }
+
   private sealed class AddEntryForm
   {
     [Range(1, 10000, ErrorMessage = "Amount must be between 1 and 10,000 ml")]
     public int AmountMl { get; set; } = 250;
+
+    [MaxLength(500, ErrorMessage = "Notes must be 500 characters or fewer")]
+    public string? Notes { get; set; }
+  }
+
+  private sealed class EditEntryForm
+  {
+    [Range(1, 10000, ErrorMessage = "Amount must be between 1 and 10,000 ml")]
+    public int AmountMl { get; set; }
+
+    public DateTime RecordedAt { get; set; }
 
     [MaxLength(500, ErrorMessage = "Notes must be 500 characters or fewer")]
     public string? Notes { get; set; }
