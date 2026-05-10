@@ -1,36 +1,111 @@
 @page "/tracker"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+@using System.ComponentModel.DataAnnotations
 @using System.Security.Claims
 @using WaterTracker.Features.WaterIntake
 @inject IWaterIntakeService IntakeService
 @inject AuthenticationStateProvider AuthStateProvider
 
-<section>
-  <h1>Water Tracker</h1>
+<section class="container py-4">
+  <h1 class="mb-1">Water Tracker</h1>
 
   @if (entries == null)
   {
-    <p>Loading...</p>
-  }
-  else if (!entries.Any())
-  {
-    <p>No entries yet.</p>
+    <p class="text-muted">Loading...</p>
   }
   else
   {
-    @foreach (var entry in entries)
+    @* Daily total *@
+    <p class="lead mb-4">
+      Total today:
+      <strong>@TodayTotal ml</strong>
+    </p>
+
+    @* Entry table *@
+    @if (!entries.Any())
     {
-      <p>@entry.AmountMl ml - @entry.RecordedAt.ToString("HH:mm")</p>
+      <p class="text-muted">No entries yet. Add your first one below.</p>
     }
+    else
+    {
+      <table class="table table-striped mb-4">
+        <thead>
+          <tr>
+            <th>Amount</th>
+            <th>Time</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          @foreach (IntakeResponse entry in SortedEntries)
+          {
+            <tr>
+              <td>@entry.AmountMl ml</td>
+              <td>@entry.RecordedAt.ToLocalTime().ToString("HH:mm")</td>
+              <td>@(entry.Notes ?? "—")</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    @* Add form *@
+    <div class="card" style="max-width: 480px;">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Log Water</h5>
+
+        @if (errorMessage != null)
+        {
+          <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <EditForm Model="form" OnValidSubmit="AddEntryAsync" FormName="add-entry">
+          <DataAnnotationsValidator />
+
+          <div class="mb-3">
+            <label class="form-label">Amount (ml)</label>
+            <InputNumber class="form-control" @bind-Value="form.AmountMl" />
+            <ValidationMessage class="text-danger small" For="@(() => form.AmountMl)" />
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Notes (optional)</label>
+            <InputTextArea class="form-control" @bind-Value="form.Notes" rows="2" />
+            <ValidationMessage class="text-danger small" For="@(() => form.Notes)" />
+          </div>
+
+          <button type="submit" class="btn btn-primary" disabled="@isSaving">
+            @(isSaving ? "Saving…" : "Add Entry")
+          </button>
+        </EditForm>
+      </div>
+    </div>
   }
 </section>
 
 @code {
-  private AuthenticationState? authState;
-  private List<IntakeResponse>? entries;
+  // State
+  private AuthenticationState? authState = null;
+  private List<IntakeResponse>? entries = null;
+  private bool isSaving = false;
+  private string? errorMessage = null;
 
-  // onInit in angular
+  // Form model
+  private AddEntryForm form = new();
+
+  // Computed
+  private string UserId => authState!.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+
+  private int TodayTotal => entries?
+      .Where(e => e.RecordedAt.Date == DateTimeOffset.UtcNow.Date)
+      .Sum(e => e.AmountMl) ?? 0;
+
+  private IEnumerable<IntakeResponse> SortedEntries =>
+      entries?.OrderByDescending(e => e.RecordedAt) ?? Enumerable.Empty<IntakeResponse>();
+
+
+  // Lifecycle
   protected override async Task OnInitializedAsync()
   {
     authState = await AuthStateProvider.GetAuthenticationStateAsync();
@@ -39,8 +114,43 @@
 
   private async Task LoadEntriesAsync()
   {
-    string userId = authState!.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-    entries = (await IntakeService.GetForUserAsync(userId, CancellationToken.None)).ToList();
+    entries = (await IntakeService.GetForUserAsync(UserId, CancellationToken.None)).ToList();
   }
 
+  private void ResetForm()
+  {
+    form = new AddEntryForm();
+  }
+
+  private async Task AddEntryAsync()
+  {
+    isSaving = true;
+    errorMessage = null;
+   
+    try
+    {
+      var request = new CreateIntakeRequest(form.AmountMl, null, form.Notes);
+      await IntakeService.AddAsync(UserId, request, CancellationToken.None);
+      ResetForm();
+      await LoadEntriesAsync();
+    }
+    catch (Exception err)
+    {
+      errorMessage = err.Message;
+    }
+    finally
+    {
+      isSaving = false;
+    }
+  }
+
+  // Form model
+  private sealed class AddEntryForm
+  {
+    [Range(1, 10000, ErrorMessage = "Amount must be between 1 and 10,000 ml")]
+    public int AmountMl { get; set; }
+
+    [MaxLength(500, ErrorMessage = "Notes must be 500 characters or fewer")]
+    public string? Notes { get; set; }
+  }
 }
