@@ -1,6 +1,8 @@
 @page "/tracker"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 @using System.ComponentModel.DataAnnotations
 @using System.Security.Claims
 @using WaterTracker.Features.WaterIntake
@@ -23,7 +25,7 @@
     </p>
 
     @* Entry table *@
-    @if (!entries.Any())
+    @if (entries.Count == 0)
     {
       <p class="text-muted">No entries yet. Add your first one below.</p>
     }
@@ -38,7 +40,7 @@
           </tr>
         </thead>
         <tbody>
-          @foreach (IntakeResponse entry in SortedEntries)
+          @foreach (var entry in SortedEntries)
           {
             <tr>
               <td>@entry.AmountMl ml</td>
@@ -95,10 +97,11 @@
   private AddEntryForm form = new();
 
   // Computed
-  private string UserId => authState!.User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+  private string? UserId =>
+      authState?.User.FindFirstValue(ClaimTypes.NameIdentifier);
 
   private int TodayTotal => entries?
-      .Where(e => e.RecordedAt.Date == DateTimeOffset.UtcNow.Date)
+      .Where(e => e.RecordedAt.ToLocalTime().Date == DateTime.Today)
       .Sum(e => e.AmountMl) ?? 0;
 
   private IEnumerable<IntakeResponse> SortedEntries =>
@@ -114,24 +117,37 @@
 
   private async Task LoadEntriesAsync()
   {
-    entries = (await IntakeService.GetForUserAsync(UserId, CancellationToken.None)).ToList();
-  }
+    if (UserId == null)
+    {
+      errorMessage = "Could not find the current user.";
+      entries = [];
+      return;
+    }
 
-  private void ResetForm()
-  {
-    form = new AddEntryForm();
+    entries = (await IntakeService.GetForUserAsync(UserId, CancellationToken.None)).ToList();
   }
 
   private async Task AddEntryAsync()
   {
+    if (UserId == null)
+    {
+      errorMessage = "Could not find the current user.";
+      return;
+    }
+
     isSaving = true;
     errorMessage = null;
-   
+
     try
     {
-      var request = new CreateIntakeRequest(form.AmountMl, null, form.Notes);
+      var request = new CreateIntakeRequest(
+          form.AmountMl,
+          null, // for now we always set RecordedAt to "now" on the backend, so no need for the form to specify it
+          form.Notes);
+
       await IntakeService.AddAsync(UserId, request, CancellationToken.None);
-      ResetForm();
+
+      form = new AddEntryForm();
       await LoadEntriesAsync();
     }
     catch (Exception err)
@@ -144,11 +160,10 @@
     }
   }
 
-  // Form model
   private sealed class AddEntryForm
   {
     [Range(1, 10000, ErrorMessage = "Amount must be between 1 and 10,000 ml")]
-    public int AmountMl { get; set; }
+    public int AmountMl { get; set; } = 250;
 
     [MaxLength(500, ErrorMessage = "Notes must be 500 characters or fewer")]
     public string? Notes { get; set; }
