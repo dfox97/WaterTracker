@@ -78,11 +78,11 @@ The Blazor `EditForm` also uses lightweight `DataAnnotations` for inline field h
 
 - **Service tests** use SQLite `:memory:` with a kept-alive connection. Closer to real SQL than `UseInMemoryDatabase`, no test doubles around `DbContext`. Covers: ownership guards on update and delete, cross-user isolation, cascade behaviour.
 - **Validator tests** instantiate the validator directly. No DI, no fixtures.
-- **Component tests** (bUnit) Currently skipped - time constrants but the service tests carry enough of the SOLID/testability story.
+- **Endpoint integration tests** use `WebApplicationFactory<Program>` with a shared SQLite `:memory:` connection and a `TestAuthHandler` that authenticates from a request header (absent header → 401). Covers the auth boundary (`GET /api/intake` unauthenticated → 401), the validation gate (`POST` with invalid body → 400), and the happy path (`POST` with valid body → 201, `Location` set, entry persisted).
+- **Component tests** (bUnit) currently skipped — time constraints, but the service and endpoint tests carry the SOLID/testability story.
 
 ## What I'd do with more time
 
 - Admin user management view (the brief calls it optional).
 - bUnit component tests for `Tracker.razor`.
-- Endpoint integration tests via `WebApplicationFactory<Program>` - `partial class Program` is already in place for it.
 - Server-side pagination on the entry list.
